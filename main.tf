@@ -47,6 +47,7 @@ resource "aws_route_table_association" "rta" {
 }
 
 # --- Security Group ---
+# Adicionada a porta 5000 para a aplicação Flask
 resource "aws_security_group" "ec2" {
   name   = "ec2-lab"
   vpc_id = aws_vpc.lab.id
@@ -61,6 +62,13 @@ resource "aws_security_group" "ec2" {
   ingress {
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -131,17 +139,19 @@ resource "aws_instance" "web" {
     #!/bin/bash
     dnf update -y
 
-    # Nginx
-    dnf install -y nginx
-    systemctl enable nginx
-    systemctl start nginx
-    echo "<h1>EC2 via Terraform - IAC AWS</h1>" > /usr/share/nginx/html/index.html
-
-    # Docker
+    # Instala e inicia o Docker
     dnf install -y docker
     systemctl enable docker
     systemctl start docker
     usermod -aG docker ec2-user
+
+    # Faz o pull da imagem e sobe o container
+    docker pull dipiras/falsk-app:v1.0
+    docker run -d \
+      --name falsk-app \
+      --restart always \
+      -p 5000:5000 \
+      dipiras/falsk-app:v1.0
   EOF
 
   tags = {
@@ -159,5 +169,5 @@ output "ssh_cmd" {
 }
 
 output "http_url" {
-  value = "http://${aws_instance.web.public_ip}"
+  value = "http://${aws_instance.web.public_ip}:5000"
 }
